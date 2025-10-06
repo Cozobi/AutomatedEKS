@@ -1,0 +1,29 @@
+# ~/testing-Project/app/kubernetes/ingress.yaml
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: test-app-ingress
+  annotations:
+    # 1. CRITICAL: Tell the controller to use an internet-facing ALB
+    alb.ingress.kubernetes.io/scheme: internet-facing 
+    # 2. CRITICAL: Route traffic directly to Pod IPs (best practice for VPC CNI)
+    alb.ingress.kubernetes.io/target-type: ip 
+    # 3. CRITICAL: Health checks must target the container port
+    alb.ingress.kubernetes.io/healthcheck-port: '8080' 
+    # 4. Optional: Enable WAF or other security/network features here
+    # alb.ingress.kubernetes.io/wafv2-acl-arn: <WAF_ARN> 
+  labels:
+    app: test-app
+spec:
+  ingressClassName: alb # Use the controller you deployed in Terraform
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: test-app-service
+            port:
+              number: 80

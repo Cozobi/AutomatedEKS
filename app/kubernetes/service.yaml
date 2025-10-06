@@ -1,0 +1,15 @@
+# ~/testing-Project/app/kubernetes/service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-app-service
+spec:
+  # ClusterIP: Only accessible inside the EKS cluster
+  type: ClusterIP 
+  selector:
+    app: test-app
+  ports:
+  - protocol: TCP
+    port: 80 # Service port
+    targetPort: 8080 # Container port

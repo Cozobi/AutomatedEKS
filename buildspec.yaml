@@ -1,0 +1,56 @@
+# buildspec.yml (Cleaned and Parameterized)
+
+version: 0.2
+
+env:
+  variables:
+    IMAGE_TAG: "v-$(echo $CODEBUILD_RESOLVED_COMMIT_ID | cut -c 1-7)"
+    APP_NAME: "test-app"
+    # ECR_REPO_URI (This variable must be configured in CodeBuild)
+    # EKS_CLUSTER_NAME (This variable must be configured in CodeBuild)
+    # AWS_REGION (This variable must be configured in CodeBuild)
+
+phases:
+  install:
+    runtime-versions:
+      docker: 18
+      
+    commands:
+      # Use AWS_REGION variable for reliable kubectl download
+      - curl -o kubectl https://s3.$AWS_REGION.amazonaws.com/amazon-eks/1.29/2024-03-29/bin/linux/amd64/kubectl 
+      - chmod +x ./kubectl
+      - mv ./kubectl /usr/local/bin/kubectl
+      - mkdir -p ~/.kube
+      
+  pre_build:
+    commands:
+      - echo "Authenticating to Amazon ECR..."
+      - $(aws ecr get-login --no-include-email --region $AWS_REGION)
+      
+      - FULL_IMAGE_URI=$ECR_REPO_URI:$IMAGE_TAG
+      - echo "Tagging image as: $FULL_IMAGE_URI"
+
+  build:
+    commands:
+      - echo "Building Docker image..."
+      - docker build -t $APP_NAME:latest -f app/Dockerfile app/
+      - docker tag $APP_NAME:latest $FULL_IMAGE_URI
+
+  post_build:
+    commands:
+      - echo "Pushing to ECR..."
+      - docker push $FULL_IMAGE_URI
+      
+      - echo "Updating Kubeconfig for EKS deployment..."
+      - aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --region $AWS_REGION
+      
+      # Use the sed command to replace the image placeholder in the deployment manifest
+      - sed -i "s|<YOUR_ECR_URI_HERE>:<IMAGE_TAG>|$FULL_IMAGE_URI|g" app/kubernetes/deployment.yaml
+
+      - echo "Applying Kubernetes Manifests..."
+      - kubectl apply -f app/kubernetes/
+      
+artifacts:
+  files:
+    - app/kubernetes/deployment.yaml
+  discard-paths: yes

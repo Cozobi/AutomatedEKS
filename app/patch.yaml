@@ -1,0 +1,12 @@
+# ~/testing-Project/app/patch.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aws-auth
+  namespace: kube-system
+data:
+  mapRoles: |
+    - rolearn: arn:aws:iam::120569606736:role/Admin
+      username: admin
+      groups:
+        - system:masters
